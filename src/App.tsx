@@ -4,9 +4,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 
 import VideoContent from './views/Contents/VideoContent/VideoContent';
 import CamContent from './views/Contents/CamContent/CamContent';
-import PageContent from './views/Contents/PageContent/PageContent';
-import './styles/App.css';
-import { createGlobalStyle } from 'styled-components';
+import AlbumContent from './views/Contents/AlbumContent/AlbumContent';
 
 function App() {
     // const history = useHistory();
@@ -20,10 +18,10 @@ function App() {
                     <Route>
                     <Route path="/" element={<CamContent />} />
                     <Route path="/video" element={<VideoContent />} />
-                    <Route path="/page" element={<PageContent />} />
-                    </Route>
-                </Routes>
-            </Router>
+                    <Route path="/album" element={<AlbumContent />} />
+                </Route>
+            </Routes>
+        </Router>
     );
 }
 

@@ -3,41 +3,37 @@ import styled from 'styled-components';
 import Sidebar from '../../../components/Sidebar/Sidebar';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
-import WebCamPage from '../../webCam';
+import AlbumSlider from '../../Album/Slider';
 
 const StyleContent = styled.div`
-    background-color: #fff;
+    background-color: #f1f5f9;
     font-family: GangwonEduPowerExtraBoldA;
     display: flex;
-    height: 100vh;
-    text-align: center;
     margin-top: -16px;
-`;
-
-const WebcamPage = styled.section`
-    display: block;
     text-align: center;
-    margin-left: 300px;
-    margin-top: 20px;
 `;
 
-export default function CamContent() {
+const AlbumPage = styled.div`
+    margin: 20px auto;
+`;
+
+export default function AlbumContent() {
     return (
-        <>
+        <div>
             <Header />
             <span>
                 <hr />
             </span>
             <StyleContent>
                 <Sidebar />
-                <WebcamPage>
-                    <WebCamPage />
-                </WebcamPage>
+                <AlbumPage>
+                    <AlbumSlider />
+                </AlbumPage>
             </StyleContent>
             <span>
                 <hr style={{ marginTop: '-1px' }} />
             </span>
             <Footer />
-        </>
+        </div>
     );
 }
