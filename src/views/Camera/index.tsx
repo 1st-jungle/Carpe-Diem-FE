@@ -9,15 +9,14 @@ import './index.css';
 import * as types from '../../types/cam';
 import constraints from '../../common/constraints';
 import uploadToS3Bucket from '../../services/Cam/uploadToS3Bucket';
+import sub1UploadToS3Bucket from '../../services/Cam/sub1UploadToS3Bucket';
+import sub2UploadToS3Bucket from '../../services/Cam/sub2UploadToS3Bucket';
 import EmotionSetData from './EmotionSetData';
-import config from '../../config';
-import axios from 'axios';
-import Sparky from 'react-sparkle';
-import { ConnectingAirportsOutlined } from '@mui/icons-material';
+// import loadUsim from '../../services/Cam/loadUsim';
 
 const rotate = keyframes`
-  from {
-      transform: rotate(0deg);
+    from {
+        transform: rotate(0deg);
     }
 
     to { transform: rotate(360deg);
@@ -63,6 +62,11 @@ const OffButton = styled.button`
 `;
 
 let recordFlag = false; // 녹화 여부
+let camStartFlag = false; // 캠 시작 여부
+let sub1SaveS3Flag = false; // 첫번째 서브 저장 여부
+let sub2SaveS3Flag = false; // 두번째 서브 저장 여부
+let sub1RecordFlag = false; // 첫번째 서브 녹화 여부
+let sub2RecordFlag = false; // 두번째 서브 녹화 여부
 let recentRecordTime: number;
 let recordInfo: types.RecordInfo;
 const expression: types.Expression = { value: 0, label: '', target: '', time: 0 };
@@ -80,8 +84,6 @@ function CameraPage(props: any) {
     const [modelLoaded, setModelLoaded] = useState(false);
     const [recordStarted, setRecordStarted] = useState(false);
 
-    // const recordFlag = useState(true);
-
     useEffect(() => {
         console.log('video');
     }, [video]);
@@ -94,12 +96,13 @@ function CameraPage(props: any) {
             .then((stream) => {
                 if (videoRef && videoRef.current) {
                     if (camStarted) {
+                        camStartFlag = true;
                         videoRef.current.srcObject = stream;
                         setModelLoaded(true);
-                    } else {
-                        setModelLoaded(false);
-                        videoRef.current.srcObject = null;
                     }
+                } else {
+                    camStartFlag = false;
+                    setModelLoaded(false);
                 }
             })
             .catch((err) => console.error(err));
@@ -129,29 +132,11 @@ function CameraPage(props: any) {
     // 라벨링 할 인물 이미지 로컬에서 가져오기
     const loadImage = async () => {
         // 업로드 된 이미지 이름을 배열에 담아 라벨링 합니다.
-        const resultUrls: any[] = [];
-        let labels = await axios({
-            url: `http://${config.server.host}:${config.server.port}/camera/usim/${userId}`,
-            method: 'get',
-        })
-            .then(function (result) {
-                result.data.forEach((element: any) => {
-                    console.log(element);
-                    resultUrls.push(element.userImgUrl);
-                });
-                console.log(resultUrls);
-                console.log('이미지 로드 성공');
-                return resultUrls;
-            })
-            .catch(function (error) {
-                console.log(error);
-                console.log('이미지 로드 실패');
-                return resultUrls;
-            });
+        const labels = [`${userId}`];
 
         return Promise.all(
             labels.map(async (label) => {
-                const images = await faceapi.fetchImage(label);
+                const images = await faceapi.fetchImage(require(`./imgs/${label}.jpg`));
                 const descriptions = [];
                 const detections = await faceapi.detectSingleFace(images).withFaceLandmarks().withFaceDescriptor();
                 if (detections) descriptions.push(detections.descriptor);
@@ -170,6 +155,18 @@ function CameraPage(props: any) {
         const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // 다운로드할 영상 변수 생성
         const mediaRecorder = new MediaRecorder(mediaStream); // 새로운 영상 객체 생성
         mediaRecorder.ondataavailable = handleDataAvailable;
+
+        // 첫번째 서브 녹화
+        const sub1MediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const sub1MediaRecorder = new MediaRecorder(sub1MediaStream);
+        sub1MediaRecorder.ondataavailable = sub1HandleDataAvailable;
+
+        // 두번째 서브 녹화
+        const sub2MediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const sub2MediaRecorder = new MediaRecorder(sub2MediaStream);
+        sub2MediaRecorder.ondataavailable = sub2HandleDataAvailable;
+
+        subRecordLoop(sub1MediaRecorder, sub2MediaRecorder);
 
         let displaySize = { width: constraints.video.width, height: constraints.video.height };
 
@@ -214,8 +211,8 @@ function CameraPage(props: any) {
                     // const labelColor = label === userId ? 'red' : 'blue';
                     const drawBox = new faceapi.draw.DrawBox(box, { boxColor: 'red', label: label });
 
-                    if (label === userId) drawBox.draw(canvas); // 특정 사용자가 감지됐을 때만 바운딩 박스 표시
-                    // drawBox.draw(canvas); // 전체 사용자 인식
+                    // if (label === userId) drawBox.draw(canvas); // 특정 사용자가 감지됐을 때만 바운딩 박스 표시
+                    drawBox.draw(canvas); // 특정 사용자가 감지됐을 때만 바운딩 박스 표시
 
                     // faceapi.draw.drawFaceExpressions(canvas, resizedDetections); // 감정 수치 표시
 
@@ -236,8 +233,8 @@ function CameraPage(props: any) {
         const loop = async () => {
             const expressions = await faceDetecting(expression);
             // 새로 녹화 시작
-            if (!recordFlag && expressions.value > constraints.model.emotionValue && expressions.label === 'happy' && expressions.target === userId) {
-                recordFlag = true;
+            // if (!recordFlag && expressions.value > constraints.model.emotionValue && expressions.label === 'happy' && expressions.target === userId) {
+            if (expressions.value > constraints.model.emotionValue && expressions.label === 'happy') {
                 recordInfo = {
                     userId: userId,
                     maxValue: expressions.value,
@@ -246,11 +243,18 @@ function CameraPage(props: any) {
                     startTime: expressions.time,
                     maxTime: -32400000,
                 };
+                recordFlag = true;
                 recentRecordTime = expressions.time; // 최근 감정 갱신 시간
                 mediaRecorder.start();
-                recordVideo(mediaRecorder); // 녹화시작
+                recordVideo(mediaRecorder, sub1MediaRecorder, sub2MediaRecorder); // 녹화시작
                 setRecordStarted(true);
                 console.log('녹화 시작');
+
+                if (sub1RecordFlag && !sub2RecordFlag) {
+                    sub1SaveS3Flag = true;
+                } else if (!sub1RecordFlag && sub2RecordFlag) {
+                    sub2SaveS3Flag = true;
+                }
             }
             // 녹화 시간 연장
             else if (
@@ -272,13 +276,24 @@ function CameraPage(props: any) {
         setTimeout(loop, 0.03);
     };
 
-    const recordVideo = async (mediaRecorder: MediaRecorder) => {
+    const subRecordLoop = async (sub1MediaRecorder: MediaRecorder, sub2MediaRecorder: MediaRecorder) => {
+        sub1RecordVideo(sub1MediaRecorder);
+        setTimeout(async () => {
+            sub2RecordVideo(sub2MediaRecorder);
+        }, 5000);
+
+        setTimeout(async () => {
+            if (camStartFlag && !recordFlag) subRecordLoop(sub1MediaRecorder, sub2MediaRecorder);
+        }, 5000);
+    };
+
+    const recordVideo = async (mediaRecorder: MediaRecorder, sub1MediaRecorder: MediaRecorder, sub2MediaRecorder: MediaRecorder) => {
         setTimeout(async () => {
             if (recordInfo.count <= 5 && Date.now() - recentRecordTime < 2000) {
                 // 2초 이내 감정 갱신시, 시간 추가
                 console.log('녹화 연장');
                 recordInfo.count++; // 시간 연장 횟수 (최대 1분까지만 저장되게 구현)
-                recordVideo(mediaRecorder);
+                recordVideo(mediaRecorder, sub1MediaRecorder, sub2MediaRecorder);
             } else {
                 try {
                     if (videoRef.current) {
@@ -289,11 +304,35 @@ function CameraPage(props: any) {
                     recentRecordTime = 0;
                     console.log('녹화 중지');
                     setRecordStarted(false);
+                    subRecordLoop(sub1MediaRecorder, sub2MediaRecorder);
                 } catch (err) {
                     console.log(err);
                 }
             }
         }, 10000);
+    };
+
+    const sub1RecordVideo = async (sub1MediaRecorder: MediaRecorder) => {
+        if (camStartFlag && sub1RecordFlag === false && !recordFlag) {
+            sub1MediaRecorder.start();
+            console.log('서브1 녹화 시작');
+            sub1RecordFlag = true;
+        } else {
+            sub1MediaRecorder.stop();
+            console.log('서브1 녹화 중지');
+            sub1RecordFlag = false;
+        }
+    };
+    const sub2RecordVideo = async (sub2MediaRecorder: MediaRecorder) => {
+        if (camStartFlag && sub2RecordFlag === false && !recordFlag) {
+            sub2MediaRecorder.start();
+            console.log('서브2 녹화 시작');
+            sub2RecordFlag = true;
+        } else {
+            sub2MediaRecorder.stop();
+            console.log('서브2 녹화 중지');
+            sub2RecordFlag = false;
+        }
     };
 
     async function handleDataAvailable(event: any) {
@@ -303,6 +342,44 @@ function CameraPage(props: any) {
             if (camStarted === true) await uploadToS3Bucket(recordInfo, recordedChunks);
             recordedChunks.pop();
         }
+    }
+
+    async function sub1HandleDataAvailable(event: any) {
+        const sub1RecordedChunks: any[] = [];
+
+        if (event.data.size > 0) {
+            sub1RecordedChunks.push(event.data);
+        }
+
+        console.log('sub1 1111111', sub1RecordedChunks);
+        if (camStarted && !sub1SaveS3Flag) {
+            sub1RecordedChunks.pop();
+        } else if (camStarted && sub1SaveS3Flag) {
+            console.log('sub1 ininininin', sub1RecordedChunks);
+            sub1SaveS3Flag = false;
+            await sub1UploadToS3Bucket(sub1RecordedChunks);
+            sub1RecordedChunks.pop();
+        }
+        console.log('sub1 22222222', sub1RecordedChunks);
+    }
+
+    async function sub2HandleDataAvailable(event: any) {
+        const sub2RecordedChunks: any[] = [];
+
+        if (event.data.size > 0) {
+            sub2RecordedChunks.push(event.data);
+        }
+
+        console.log('sub2 1111111', sub2RecordedChunks);
+        if (camStarted && !sub2SaveS3Flag) {
+            sub2RecordedChunks.pop();
+        } else if (camStarted && sub2SaveS3Flag) {
+            console.log('sub2 ininininin', sub2RecordedChunks);
+            sub2SaveS3Flag = false;
+            await sub2UploadToS3Bucket(sub2RecordedChunks);
+            sub2RecordedChunks.pop();
+        }
+        console.log('sub2 2222222', sub2RecordedChunks);
     }
 
     const onairButton = {
@@ -317,17 +394,6 @@ function CameraPage(props: any) {
         fontSize: '24px',
         borderRadius: '20px',
         transition: 'all 0.6s ease-in-out',
-        // @keyframes sparkle {
-        //     0% {
-        //       box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.5), -4px -4px 4px rgba(255, 255, 255, 0.5);
-        //     }
-        //     50% {
-        //       box-shadow: 8px 8px 8px rgba(255, 255, 0, 0.5), -8px -8px 8px rgba(255, 255, 255, 0.5);
-        //     }
-        //     100% {
-        //       box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.5), -4px -4px 4px rgba(255, 255, 255, 0.5);
-        //     }
-        //   }
     };
 
     const offairButton = {
