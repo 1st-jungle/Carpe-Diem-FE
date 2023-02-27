@@ -29,6 +29,8 @@ import { Typography, Button } from '@mui/material';
 import Share from './Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import { url } from 'inspector';
+import { useDispatch } from 'react-redux';
+import { CARD_UPDATE_REQUEST } from '../../redux/types';
 
 const StyleContent = styled.div`
     background-color: #fff;
@@ -70,6 +72,7 @@ interface IProps {
 }
 
 const AlbumSinglePage = () => {
+    const dispatch = useDispatch();
     const [open, setOpen] = useState(false);
     const handleOpen = () => setOpen(true);
     const handleClose = () => setOpen(false);
@@ -121,12 +124,9 @@ const AlbumSinglePage = () => {
         if (e.key === 'Enter') {
             setEditable(false);
             cardAlbum.comment = text;
-
-            axios({
-                method: 'put',
-                url: `http://${config.server.host}:${config.server.port}/card/${cardId}`,
-                withCredentials: true,
-                data: {
+            dispatch({
+                type: CARD_UPDATE_REQUEST,
+                payload: {
                     card_id: cardAlbum.cardId,
                     user_id: cardAlbum.userId,
                     album_id: cardAlbum.albumId,
@@ -135,14 +135,8 @@ const AlbumSinglePage = () => {
                     thumbnail_url: cardAlbum.thumbnailUrl,
                     video_url: cardAlbum.videoUrl,
                 },
-            })
-                .then(function (result) {
-                    console.log(result);
-                    // window.location.reload();
-                })
-                .catch(function (error) {
-                    console.log(error);
-                });
+            });
+            history.go(0);
         }
     };
 

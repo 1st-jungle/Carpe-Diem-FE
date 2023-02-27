@@ -6,6 +6,8 @@ import axios from 'axios';
 import config from '../../config';
 import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { CARD_DELETE_REQUEST } from '../../redux/types';
+import { useDispatch } from 'react-redux';
 
 const style = {
     position: 'absolute',
@@ -19,24 +21,19 @@ const style = {
 };
 
 const VideoDelete = (props: any) => {
+    const dispatch = useDispatch();
     const [open, setOpen] = useState(false);
     const handleOpen = () => setOpen(true);
     const handleClose = () => setOpen(false);
 
     const onClickDelete = () => {
-        axios({
-            method: 'delete',
-            url: `http://${config.server.host}:${config.server.port}/card/${props.cardId}`,
-            withCredentials: true,
-        })
-            .then(function (response) {
-                console.log(response.status);
-                // window.location.replace(`http://${config.client.host}:${config.client.port}/video`);
-                window.location.reload();
-            })
-            .catch(function (error) {
-                console.log(error);
-            });
+        dispatch({
+            type: CARD_DELETE_REQUEST,
+            payload: {
+                card_id: props.cardId,
+            },
+        });
+        history.go(0);
     };
     return (
         <>

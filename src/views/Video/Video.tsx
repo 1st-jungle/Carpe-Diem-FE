@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container } from '@mui/system';
 import { Typography } from '@mui/material';
 import { Grid } from '@mui/material';
@@ -30,10 +30,10 @@ import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import CloseIcon from '@mui/icons-material/Close';
 
 import config from '../../config';
-import { ALBUM_CREATE_REQUEST } from '../../redux/types';
+import { ALBUM_CREATE_REQUEST, CARD_LIST_LOADING_REQUEST } from '../../redux/types';
 import Share from '../Album/Share';
 import VideoDelete from './VideoDelete';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 const CheckboxStyle = styled.div`
     position: absolute;
@@ -54,26 +54,16 @@ const ClearCard = styled.div`
     margin-top: 20px;
 `;
 
-let allCard: any[] = [];
+const allCard: any[] = [];
 const Video = () => {
     const dispatch = useDispatch();
-    const [cards, setCards] = useState<any[]>([]);
-    React.useEffect(function () {
-        axios({
-            method: 'get',
-            url: `http://${config.server.host}:${config.server.port}/card`,
-            withCredentials: true,
-        })
-            .then(function (result) {
-                console.log('dafsfasdffsfdsaafsd', result.data);
-                setCards(result.data);
-                allCard = result.data;
-            })
-            .catch(function (error) {
-                console.log(`http://${config.server.host}:${config.server.port}/card`);
-                console.error('card 에러발생: ', error);
-            });
-    }, []);
+    const { cardList } = useSelector((state: any) => state.cardList);
+    useEffect(() => {
+        dispatch({
+            type: CARD_LIST_LOADING_REQUEST,
+        });
+    }, [dispatch]);
+    console.log(cardList);
     const label = { inputProps: { 'aria-label': 'Checkbox demo' } };
     const [checkedListAlbum, setCheckedListAlbum]: any = useState({});
     // 체크시 데이터 저장, 체크 해제시 데이터 삭제
@@ -99,8 +89,8 @@ const Video = () => {
         delete checkedListAlbum[item.cardId];
         setCheckedListAlbum({ ...checkedListAlbum });
     };
-
     const [id, setId] = useState('');
+
     const [thumbnailUrl, setThumbnamilUrl] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
     const [open, setOpen] = React.useState(false);
@@ -223,7 +213,7 @@ const Video = () => {
                 </Accordion>
             </Box>
             <Grid container spacing={1} sx={{ mt: '20px' }}>
-                {cards.map((card: any) => (
+                {cardList?.map((card: any) => (
                     <Grid item key={card.cardId} xs={12} sm={4}>
                         <Card
                             sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', borderRadius: '0px' }}
