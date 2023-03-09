@@ -437,23 +437,23 @@ function MobileCamera(props: any) {
                         height: constraints.video.height,
                     }}
                 >
-                    <div style={{ textAlign: 'center', top: '-10px' }}>
-                        <img src={iphone} style={{ position: 'absolute', width: '880px', height: '1000px', top: '-30px', left: '-45px' }}></img>
-                        <div>
-                            {/* {onRemoteStream ? ( */}
-                            <video
-                                style={{ marginTop: '100px' }}
-                                ref={mobileRef}
-                                autoPlay
-                                muted
-                                onPlay={onPlay}
-                                width={constraints.video.width}
-                                height={constraints.video.height}
-                            />
-                            {/* ) : (
+                    <div>
+                        <QRCodeSVG value={`${config.server.protocol}://${config.client.host}/remote/${userId}`} />
+                        {onRemoteStream ? (
+                            <video ref={mobileRef} autoPlay muted onPlay={onPlay} width={constraints.video.width} height={constraints.video.height} />
+                        ) : (
                             ''
-                        )} */}
-                        </div>
+                            // <video
+                            //     src={`https://${config.aws.bucket_name}.s3.${config.aws.region}.amazonaws.com/assets/loading-video.mp4`}
+                            //     autoPlay
+                            //     loop
+                            //     muted
+                            //     style={{ objectFit: 'cover' }}
+                            //     width={constraints.video.width}
+                            //     height={constraints.video.height}
+                            // />
+                        )}
+
                     </div>
                 </div>
             </div>
